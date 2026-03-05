@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Café Room — Floor Plan Editor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
+
+:root {
+  --bg: #1c1917;
+  --surface: #25221f;
+  --surface2: #2e2a26;
+  --border: #3d3830;
+  --accent: #d4a96a;
+  --accent2: #8fba8f;
+  --text: #e8e0d5;
+  --muted: #7a7068;
+  --danger: #c06a6a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 260px;
+  min-width: 260px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  transition: width 0.25s ease, min-width 0.25s ease;
+  position: relative;
+  height: 100vh;
+}
+
+#sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+  overflow: hidden;
+}
+
+#sidebar-toggle {
+  position: fixed;
+  top: 12px;
+  left: 248px;
+  z-index: 100;
+  width: 24px;
+  height: 24px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left 0.25s ease, background 0.15s, transform 0.25s ease;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+#sidebar-toggle:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+#sidebar.collapsed ~ #sidebar-toggle,
+body.sidebar-collapsed #sidebar-toggle {
+  left: 8px;
+}
+
+#sidebar-header {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+#sidebar-header h1 {
+  font-family: 'Instrument Serif', serif;
+  font-size: 1.15rem;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+#sidebar-header p {
+  font-size: 0.65rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+#sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  min-height: 0;
+}
+
+#sidebar-body::-webkit-scrollbar { width: 4px; }
+#sidebar-body::-webkit-scrollbar-track { background: transparent; }
+#sidebar-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.section-title {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 12px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Add buttons */
+.add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  cursor: pointer;
+  margin-bottom: 5px;
+  transition: all 0.15s;
+  text-align: left;
+}
+.add-btn:hover { background: var(--border); border-color: var(--accent); color: var(--accent); }
+.add-btn .icon { font-size: 1rem; width: 20px; text-align: center; }
+.add-btn .desc { font-size: 0.6rem; color: var(--muted); display: block; margin-top: 1px; }
+
+/* Item list */
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+  position: relative;
+}
+.item-row:hover { border-color: var(--accent); }
+.item-row.selected { border-color: var(--accent); background: #2e2818; }
+.item-row .item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.item-row .item-name { font-size: 0.75rem; flex: 1; font-weight: 500; }
+.item-row .item-sub { font-size: 0.6rem; color: var(--muted); }
+.item-row .del-btn {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 0.8rem; padding: 2px 4px;
+  border-radius: 3px; line-height: 1;
+  transition: all 0.12s;
+}
+.item-row .del-btn:hover { color: var(--danger); background: rgba(192,106,106,0.12); }
+
+/* Properties panel */
+#props-panel {
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+  padding: 12px;
+  display: none;
+  flex-shrink: 0;
+}
+#props-panel.visible { display: block; }
+#props-panel h3 {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.prop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.prop-row label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.prop-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.75rem;
+  padding: 5px 8px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.12s;
+}
+.prop-input:focus { border-color: var(--accent); }
+
+.chair-side-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+  margin-top: 2px;
+}
+.chair-side-grid .mid-row {
+  display: flex;
+  gap: 4px;
+}
+.side-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.65rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.12s;
+  font-family: 'DM Sans', sans-serif;
+}
+.side-btn.active { background: #2e3a2e; border-color: var(--accent2); color: var(--accent2); }
+.side-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Grid mode */
+.grid-mode-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.gm-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.62rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0.03em;
+  transition: all 0.12s;
+}
+.gm-btn.active { background: #2e2818; border-color: var(--accent); color: var(--accent); }
+
+/* Sidebar footer */
+#sidebar-footer {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-top: auto;
+}
+.footer-btn {
+  flex: 1;
+  padding: 7px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.68rem;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.12s;
+  letter-spacing: 0.03em;
+}
+.footer-btn:hover { border-color: var(--accent); color: var(--accent); }
+.footer-btn.primary { background: var(--accent); border-color: var(--accent); color: #1c1917; font-weight: 600; }
+.footer-btn.primary:hover { background: #c49858; }
+
+/* ── Canvas area ── */
+#canvas-area {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 20px;
+  background: var(--bg);
+}
+
+canvas {
+  display: block;
+  border-radius: 6px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  cursor: default;
+}
+</style>
+</head>
+<body>
+
+<!-- Sidebar toggle button -->
+<button id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">‹</button>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1>Café Floor Plan</h1>
+    <p>14 wide · 15 deep · grid editor</p>
+  </div>
+
+  <div id="sidebar-body">
+    <div class="section-title">Add Items</div>
+    <button class="add-btn" onclick="addItem('table')">
+      <span class="icon">🪑</span>
+      <span><strong>Table</strong><span class="desc">Square, oak top · up to 4 chairs</span></span>
+    </button>
+    <button class="add-btn" onclick="addItem('bar')">
+      <span class="icon">🔵</span>
+      <span><strong>Bar Table</strong><span class="desc">Round tall table · no chairs</span></span>
+    </button>
+    <button class="add-btn" onclick="addItem('spare')">
+      <span class="icon">🪑</span>
+      <span><strong>Spare Chairs</strong><span class="desc">Stacked chairs · 1 grid cell</span></span>
+    </button>
+    <button class="add-btn" onclick="addItem('desk')">
+      <span class="icon">📐</span>
+      <span><strong>Desk</strong><span class="desc">L-shape · 6×1 + 6×0.5 grid</span></span>
+    </button>
+
+    <div class="section-title">Grid Reference</div>
+    <div class="grid-mode-row">
+      <button class="gm-btn active" data-mode="intersection" onclick="setGridMode(this)">Intersections</button>
+      <button class="gm-btn" data-mode="centre" onclick="setGridMode(this)">Centres</button>
+      <button class="gm-btn" data-mode="lines" onclick="setGridMode(this)">Lines</button>
+    </div>
+
+    <div class="section-title">Items <span id="item-count" style="color:var(--muted)"></span></div>
+    <div id="item-list"></div>
+  </div>
+
+  <div id="props-panel">
+    <h3>Selected Item</h3>
+    <div class="prop-row">
+      <label>Name</label>
+      <input class="prop-input" id="prop-name" type="text" placeholder="Label" oninput="updateProp('label', this.value)">
+    </div>
+    <div id="chair-props" style="display:none">
+      <div id="chair-sides-wrap">
+        <div class="prop-row" style="align-items:flex-start">
+          <label style="padding-top:4px">Sides</label>
+          <div style="flex:1">
+            <div style="text-align:center;margin-bottom:3px">
+              <button class="side-btn" data-side="top" onclick="toggleSide(this)">Top</button>
+            </div>
+            <div style="display:flex;gap:4px;justify-content:center;margin-bottom:3px">
+              <button class="side-btn" data-side="left" onclick="toggleSide(this)">Left</button>
+              <button class="side-btn" data-side="right" onclick="toggleSide(this)">Right</button>
+            </div>
+            <div style="text-align:center">
+              <button class="side-btn" data-side="bottom" onclick="toggleSide(this)">Bottom</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sidebar-footer">
+    <button class="footer-btn" onclick="resetLayout()">↺ Reset</button>
+    <button class="footer-btn" onclick="exportPNG()">⎙ Export PNG</button>
+  </div>
+</div>
+
+<!-- Canvas -->
+<div id="canvas-area">
+  <canvas id="c"></canvas>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════════════════════
+const COLS = 14, ROWS = 15;
+const CELL = 48; // px per tile
+
+const MT = 80,  MB = 36, ML = 36, MR = 52;
+const CW = ML + COLS * CELL + MR;
+const CH = MT + ROWS * CELL + MB;
+
+const OX = ML, OY = MT; // carpet origin
+
+function gx(v) { return OX + v * CELL; }
+function gy(v) { return OY + v * CELL; }
+
+// Desk shape: L-shaped
+// 6 tiles long total (3 + 3 tiles)
+// First half: 1 tile wide; second half: 0.5 tile wide
+const DESK_LEN = 6;
+const DESK_W1  = 0.5;  // column width (tiles)
+const DESK_W2  = 0.5;  // arm height (tiles)
+
+// Table
+const TW = CELL * 1.8;
+const TH = CELL * 1.8;
+const CR  = 14;  // chair "radius" (half-size) px
+
+let gridMode = 'intersection';
+let items = [];
+let nextId = 1;
+let selectedId = null;
+let dragging = null, dragOX = 0, dragOY = 0;
+
+const canvas = document.getElementById('c');
+canvas.width = CW; canvas.height = CH;
+const ctx = canvas.getContext('2d');
+
+// ══════════════════════════════════════════════════════════════════
+// DEFAULT LAYOUT
+// ══════════════════════════════════════════════════════════════════
+function makeTable(gxv, gyv, label, chairs=4, sides=['top','bottom','left','right']) {
+  return { id: nextId++, type: 'table', gx: gxv, gy: gyv, label, chairs, sides: [...sides] };
+}
+function makeBar(gxv, gyv, label='Bar') {
+  return { id: nextId++, type: 'bar', gx: gxv, gy: gyv, label };
+}
+function makeDesk(gxv, gyv, label='Desk') {
+  return { id: nextId++, type: 'desk', gx: gxv, gy: gyv, label, rot: 0 };
+}
+function makeSpare(gxv, gyv, label='Spare Chairs') {
+  return { id: nextId++, type: 'spare', gx: gxv, gy: gyv, label };
+}
+
+function defaultItems() {
+  nextId = 1;
+  return [
+    makeTable(4,    4,    'T1', 4, ['top','bottom','left','right']),
+    makeTable(8.5,  4,    'T2', 4, ['top','bottom','left','right']),
+    makeTable(4,    8,    'T3', 4, ['top','bottom','left','right']),
+    makeTable(8.5,  8,    'T4', 4, ['top','bottom','left','right']),
+    makeTable(13,   4.5,  'T5', 3, ['top','bottom','left']),
+    makeTable(13,   8.5,  'T6', 3, ['top','bottom','left']),
+    makeTable(13,   12.5, 'T7', 3, ['top','bottom','left']),
+    makeDesk(0,     4,    'Desk'),
+    makeSpare(13,   1,    'Spare Chairs'),
+    makeSpare(13,   0,    'Spare Chairs'),
+  ];
+}
+
+items = defaultItems();
+
+// ══════════════════════════════════════════════════════════════════
+// DRAWING
+// ══════════════════════════════════════════════════════════════════
+const C = {
+  bg:       '#1c1917',
+  wall:     '#e8e4de',
+  carpet_a: '#4d4d4d',
+  carpet_b: '#474747',
+  dot:      'rgba(190,185,175,0.7)',
+  gridLine: 'rgba(120,115,105,0.35)',
+  table:    'rgba(200,169,110,0.45)',
+  table_bd: '#8B6914',
+  chair:    '#2a2a2a',
+  chair_bd: '#555',
+  bar:      '#3a3a3a',
+  desk:     '#8BAAB8',
+  desk_bd:  '#4a7a96',
+  screen:   '#4a7cdc',
+  door:     '#c4a272',
+  xbase:    '#555',
+  sel:      'rgba(212,169,106,0.45)',
+  text:     '#2A2218',
+  muted:    '#999',
+};
+
+function drawWalls() {
+  ctx.fillStyle = C.wall;
+  ctx.fillRect(0, 0, CW, MT);
+  ctx.fillRect(0, OY + ROWS*CELL, CW, CH - (OY + ROWS*CELL));
+  ctx.fillRect(0, 0, OX, CH);
+  ctx.fillRect(OX + COLS*CELL, 0, CW - (OX + COLS*CELL), CH);
+
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(OX, OY, COLS*CELL, ROWS*CELL);
+
+  // Labels
+  ctx.fillStyle = '#bbb';
+  ctx.font = '500 9px DM Sans, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('FRONT WALL', OX + COLS*CELL/2, 11);
+
+  ctx.save();
+  ctx.translate(12, OY + ROWS*CELL/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('LEFT WALL', 0, 0);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(OX + COLS*CELL + MR - 10, OY + ROWS*CELL/2);
+  ctx.rotate(Math.PI/2);
+  ctx.fillText('RIGHT WALL', 0, 0);
+  ctx.restore();
+
+  ctx.fillText(`← ${COLS} tiles →`, OX + COLS*CELL/2, OY + ROWS*CELL + MB - 10);
+  // ── "To Toilets / Kid's Room" marker on left wall, rows 11–13
+  const tMarkerY1 = OY + 10 * CELL;   // row 11 starts at index 10
+  const tMarkerY2 = OY + 13 * CELL;   // row 13 ends at index 13
+  const tMarkerH  = tMarkerY2 - tMarkerY1;  // 3 tiles tall
+  const tMarkerX  = OX - 12;
+  const tMarkerW  = 10;
+
+  // Coloured bar on wall
+  ctx.fillStyle = '#7ab8a0';
+  ctx.fillRect(tMarkerX, tMarkerY1, tMarkerW, tMarkerH);
+
+  // Arrow pointing left (into wall)
+  const arrowMidY = tMarkerY1 + tMarkerH / 2;
+  ctx.fillStyle = '#7ab8a0';
+  ctx.beginPath();
+  ctx.moveTo(tMarkerX - 6,  arrowMidY);
+  ctx.lineTo(tMarkerX,      arrowMidY - 5);
+  ctx.lineTo(tMarkerX,      arrowMidY + 5);
+  ctx.closePath();
+  ctx.fill();
+
+  // Bracket lines top & bottom
+  ctx.strokeStyle = '#7ab8a0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(OX, tMarkerY1); ctx.lineTo(tMarkerX, tMarkerY1);
+  ctx.moveTo(OX, tMarkerY2); ctx.lineTo(tMarkerX, tMarkerY2);
+  ctx.stroke();
+
+  // Rotated label
+  ctx.save();
+  ctx.translate(tMarkerX - 10, arrowMidY);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#7ab8a0';
+  ctx.font = '600 8px DM Sans, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText("To Toilets / Kid's Room", 0, 0);
+  ctx.restore();
+
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawCarpet() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      ctx.fillStyle = (r+c)%2===0 ? C.carpet_a : C.carpet_b;
+      ctx.fillRect(OX + c*CELL, OY + r*CELL, CELL, CELL);
+    }
+  }
+}
+
+function drawGrid() {
+  if (gridMode === 'lines' || gridMode === 'both') {
+    ctx.strokeStyle = C.gridLine;
+    ctx.lineWidth = 0.5;
+    for (let c = 0; c <= COLS; c++) {
+      ctx.beginPath(); ctx.moveTo(OX+c*CELL, OY); ctx.lineTo(OX+c*CELL, OY+ROWS*CELL); ctx.stroke();
+    }
+    for (let r = 0; r <= ROWS; r++) {
+      ctx.beginPath(); ctx.moveTo(OX, OY+r*CELL); ctx.lineTo(OX+COLS*CELL, OY+r*CELL); ctx.stroke();
+    }
+  }
+  if (gridMode === 'intersection' || gridMode === 'both') {
+    for (let c = 0; c <= COLS; c++) for (let r = 0; r <= ROWS; r++) {
+      ctx.beginPath(); ctx.arc(OX+c*CELL, OY+r*CELL, 2.8, 0, Math.PI*2);
+      ctx.fillStyle = C.dot; ctx.fill();
+    }
+  }
+  if (gridMode === 'centre') {
+    for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) {
+      ctx.beginPath(); ctx.arc(OX+(c+0.5)*CELL, OY+(r+0.5)*CELL, 2.8, 0, Math.PI*2);
+      ctx.fillStyle = C.dot; ctx.fill();
+    }
+  }
+}
+
+function drawFeatures() {
+  // ── Projection screen (front wall centre)
+  const sw = CELL * 6, sh = 14;
+  const sx = OX + COLS*CELL/2 - sw/2, sy = OY - sh - 3;
+  ctx.fillStyle = C.screen;
+  ctx.fillRect(sx, sy, sw, sh);
+  ctx.fillStyle = 'white';
+  ctx.fillRect(sx+2, sy+2, sw-4, sh-4);
+  ctx.strokeStyle = C.screen; ctx.lineWidth = 1.5;
+  ctx.strokeRect(sx+2, sy+2, sw-4, sh-4);
+  ctx.fillStyle = C.screen;
+  ctx.font = '600 8px DM Sans, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('PROJECTION SCREEN', OX + COLS*CELL/2, sy - 7);
+  ctx.textBaseline = 'alphabetic';
+
+  // ── Door: LEFT WALL, top-left corner, 2 grid tiles long
+  // Door sits on the left wall (x = OX), spans from OY to OY + 2*CELL
+  const doorLen = 2 * CELL;  // 2 tiles along the left wall
+  const doorThick = 12;
+  const dX = OX - doorThick; // door flush with left wall, opening into room
+  const dY = OY;             // top of carpet = top-left corner
+
+  // Door frame (wall-coloured panel)
+  ctx.fillStyle = C.door;
+  ctx.fillRect(dX, dY, doorThick, doorLen);
+
+  // Door leaf (opens from left wall toward top wall = swings rightward/upward)
+  // Hinge at top-left corner (OX, OY), leaf swings 90° into room
+  ctx.save();
+  ctx.strokeStyle = C.door;
+  ctx.setLineDash([3, 3]);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(OX, OY, doorLen, 0, Math.PI/2); // quarter circle sweep into room
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // Door leaf line
+  ctx.strokeStyle = C.door;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(OX, OY);
+  ctx.lineTo(OX + doorLen, OY); // shows door at 90° open (along top wall)
+  ctx.stroke();
+  ctx.restore();
+
+  // Door label
+  ctx.fillStyle = '#7a5c30';
+  ctx.font = '600 8px DM Sans, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('DOOR', OX + 4, dY + doorLen/2);
+  ctx.font = '400 6.5px DM Sans, sans-serif';
+  ctx.fillStyle = '#9a7c50';
+  ctx.fillText('accessible toilet', OX + 4, dY + doorLen/2 + 10);
+  ctx.textBaseline = 'alphabetic';
+
+  // ── Grid size labels
+  ctx.save();
+  ctx.translate(OX + COLS*CELL + MR - 16, OY + ROWS*CELL/2);
+  ctx.rotate(Math.PI/2);
+  ctx.fillStyle = '#bbb';
+  ctx.font = '400 8px DM Sans, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`← ${ROWS} tiles →`, 0, 0);
+  ctx.restore();
+}
+
+function drawXBase(cx, cy, arm) {
+  ctx.strokeStyle = C.xbase; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  for (const a of [45,135,225,315]) {
+    const r = a * Math.PI/180;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(r)*arm, cy + Math.sin(r)*arm); ctx.stroke();
+  }
+  ctx.fillStyle = '#777';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+}
+
+// Chair dimensions
+const CHAIR_W = CELL * 0.7;   // seat width
+const CHAIR_H = CELL * 0.55;  // seat depth
+const BACK_H  = CELL * 0.15;  // backrest height
+
+// drawChair: cx/cy = centre of chair (including backrest), facing inward toward table
+// 'facing' = 'down' means backrest at top, seat below (chair faces down = top-side chair)
+function drawChair(cx, cy, facing) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  // Rotate so backrest always faces away from table
+  const rot = { top: 0, bottom: Math.PI, left: Math.PI/2, right: -Math.PI/2 };
+  ctx.rotate(rot[facing] || 0);
+
+  const sw = CHAIR_W, sh = CHAIR_H, bh = BACK_H;
+  const totalH = sh + bh + 2; // seat + gap + backrest
+  const ox = -sw/2, oy = -totalH/2;
+
+  // Backrest (top, rounded)
+  ctx.fillStyle = '#1a1a1a';
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(ox, oy, sw, bh, [4, 4, 1, 1]);
+  ctx.fill(); ctx.stroke();
+
+  // Seat (bottom, rounded)
+  ctx.fillStyle = '#2a2a2a';
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(ox, oy + bh + 2, sw, sh, [2, 2, 5, 5]);
+  ctx.fill(); ctx.stroke();
+
+  // Seat cushion highlight
+  ctx.fillStyle = 'rgba(100,80,50,0.25)';
+  ctx.beginPath();
+  ctx.roundRect(ox + 3, oy + bh + 5, sw - 6, sh - 8, 3);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// Chair offset from table centre so total footprint = 3x3 tiles
+// Total = 3 tiles = CELL*3, table = TW, so each side gap = (CELL*3 - TW)/2
+const CHAIR_OFF = (CELL * 3 - TW) / 2 - (CHAIR_H + BACK_H) / 2 + TW/2;
+
+function drawTable(t) {
+  const cx = gx(t.gx), cy = gy(t.gy);
+  const x = cx - TW/2, y = cy - TH/2;
+  const off = TW/2 + CR + 4;
+  const sides = t.sides || ['top','bottom','left','right'];
+
+  // Chair centre = table edge + small gap + half chair height
+  const cOff = TW/2 + 5 + (CHAIR_H + BACK_H) / 2;
+
+  // Chairs (behind table)
+  if (sides.includes('top'))    drawChair(cx,          cy - cOff, 'top');
+  if (sides.includes('bottom')) drawChair(cx,          cy + cOff, 'bottom');
+  if (sides.includes('left'))   drawChair(cx - cOff,   cy,        'left');
+  if (sides.includes('right'))  drawChair(cx + cOff,   cy,        'right');
+
+  // X-base
+  drawXBase(cx, cy, TW * 0.38);
+
+  // Table surface
+  ctx.fillStyle = C.table; ctx.strokeStyle = C.table_bd; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(x, y, TW, TH, 4); ctx.fill(); ctx.stroke();
+
+  // Wood grain
+  ctx.strokeStyle = 'rgba(160,120,40,0.2)'; ctx.lineWidth = 0.6;
+  for (let i=1;i<5;i++) {
+    const ly = y + (TH/5)*i;
+    ctx.beginPath(); ctx.moveTo(x+4, ly); ctx.lineTo(x+TW-4, ly); ctx.stroke();
+  }
+
+  // Label
+  ctx.fillStyle = '#3a2200'; ctx.font = '600 10px DM Sans, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(t.label, cx, cy - 3);
+  ctx.font = '400 7px DM Sans, sans-serif'; ctx.fillStyle = '#7a5010';
+  ctx.fillText(`${t.chairs} chairs`, cx, cy + 8);
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawBar(t) {
+  const cx = gx(t.gx), cy = gy(t.gy);
+  const br = CELL * 0.4;
+  ctx.fillStyle = C.bar; ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, br, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#555';
+  ctx.beginPath(); ctx.arc(cx, cy, br-5, 0, Math.PI*2); ctx.fill();
+  // pedestal
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(cx, cy+br-2); ctx.lineTo(cx, cy+br+8); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.font = '600 8px DM Sans, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(t.label, cx, cy);
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawSpare(t) {
+  const cx = gx(t.gx) + CELL/2;
+  const cy = gy(t.gy) + CELL/2;
+  const size = CELL * 0.82;   // fits within 1 grid cell
+  const ox = cx - size/2;
+  const oy = cy - size/2;
+  const r  = 5;
+
+  // Outer border (stack base)
+  ctx.fillStyle   = 'rgba(60,55,50,0.7)';
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth   = 1.2;
+  ctx.beginPath(); ctx.roundRect(ox, oy, size, size, r); ctx.fill(); ctx.stroke();
+
+  // Draw 4 stacked chair silhouettes (offset diagonally)
+  const offsets = [[0,0],[3,3],[6,6],[9,9]];
+  offsets.forEach(([dx, dy], i) => {
+    const alpha = 0.45 + i * 0.14;
+    const cw = size * 0.62, ch = size * 0.52;
+    const cx2 = ox + size/2 - cw/2 + dx - 4;
+    const cy2 = oy + size/2 - ch/2 + dy - 6;
+
+    // Seat
+    ctx.fillStyle = `rgba(80,70,55,${alpha})`;
+    ctx.strokeStyle = `rgba(160,140,100,${alpha})`;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.roundRect(cx2, cy2 + ch*0.35, cw, ch*0.55, 3); ctx.fill(); ctx.stroke();
+
+    // Backrest
+    ctx.fillStyle = `rgba(65,58,45,${alpha})`;
+    ctx.beginPath(); ctx.roundRect(cx2 + cw*0.08, cy2, cw*0.84, ch*0.38, [3,3,1,1]); ctx.fill(); ctx.stroke();
+
+    // Legs (two small lines bottom)
+    ctx.strokeStyle = `rgba(100,90,70,${alpha})`;
+    ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx2 + cw*0.2, cy2 + ch*0.9); ctx.lineTo(cx2 + cw*0.2, cy2 + ch);
+    ctx.moveTo(cx2 + cw*0.8, cy2 + ch*0.9); ctx.lineTo(cx2 + cw*0.8, cy2 + ch);
+    ctx.stroke();
+  });
+
+  // Label
+  ctx.fillStyle = 'rgba(220,200,160,0.9)';
+  ctx.font = '600 7.5px DM Sans, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(t.label, cx, oy + size + 8);
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawDesk(t) {
+  // Γ-shape desk (matches diagram):
+  //
+  //  ┌──────┐
+  //  │      │   ← tall vertical column: 1 tile wide, 6 tiles tall
+  //  │      │
+  //  │      ├───┐
+  //  │      │arm│  ← horizontal arm: 0.5 tile tall, 3 tiles wide
+  //  └──────┴───┘
+  //
+  // In tile units (rot=0, drawn top-to-bottom):
+  //   Column : W = DESK_W1 (1 tile)  ×  H = DESK_LEN (6 tiles)
+  //   Arm    : W = DESK_LEN/2 (3 tiles)  ×  H = DESK_W2 (0.5 tile)
+  //   Arm attaches at the MIDDLE of the column's right side
+  //   i.e. arm top = DESK_LEN/2 - DESK_W2/2 from column top
+
+  const ox = gx(t.gx);
+  const oy = gy(t.gy);
+
+  const colW  = DESK_W1  * CELL;   // column width  = 1 tile
+  const colH  = DESK_LEN * CELL;   // column height = 6 tiles
+  const armW  = 0.5 * CELL;  // arm width = 3 tiles
+  const armH  = 3  * CELL;   // arm height = 0.5 tile
+  const armY  = 0;   // arm at mid-column (3 tiles down)
+
+  const r = 10; // corner radius
+
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.rotate((t.rot || 0) * Math.PI / 2);
+
+  ctx.fillStyle = C.desk;
+  ctx.strokeStyle = C.desk_bd;
+  ctx.lineWidth = 1.8;
+
+  // Draw Γ-shape using arcTo for all corners
+  // Traverse clockwise from top-left:
+  // 1. Top-left of column
+  // 2. Top-right of column
+  // 3. Down to arm-top junction (right side of column, above arm)
+  // 4. Right along arm top
+  // 5. Arm top-right → arm bottom-right
+  // 6. Arm bottom-right → arm bottom-left (back to column right side)
+  // 7. Continue down column right side to bottom-right
+  // 8. Column bottom-right → column bottom-left
+  // 9. Back up to start
+
+  ctx.beginPath();
+  // top-left of column
+  ctx.moveTo(r, 0);
+  // top-right corner of column (no rounding)
+  ctx.lineTo(colW, 0);
+  // down right side of column to where arm starts
+  ctx.lineTo(colW,          armY);
+  // out along arm top edge
+  ctx.lineTo(colW + armW - r, armY);
+  // arm top-right corner
+  ctx.arcTo(colW + armW,    armY,        colW + armW,     armY + r,     r);
+  // arm bottom-right corner
+  ctx.arcTo(colW + armW,    armY + armH, colW + armW - r, armY + armH,  r);
+  // arm bottom edge back to column
+  ctx.lineTo(colW,          armY + armH);
+  // continue down column right side to bottom
+  ctx.lineTo(colW,          colH - r);
+  // column bottom-right corner
+  ctx.arcTo(colW,  colH,   colW - r,    colH,             r);
+  // column bottom-left corner
+  ctx.arcTo(0,     colH,   0,           colH - r,         r);
+  // column top-left corner
+  ctx.arcTo(0,     0,      r,           0,                r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Subtle stripe lines along column
+  ctx.strokeStyle = 'rgba(60,100,130,0.18)'; ctx.lineWidth = 0.6;
+  for (let i = 1; i < 6; i++) {
+    const ly = (colH / 6) * i;
+    ctx.beginPath();
+    ctx.moveTo(3, ly);
+    ctx.lineTo(colW - 3, ly);
+    ctx.stroke();
+  }
+
+  // Label in centre of column
+  ctx.fillStyle = '#1a3040';
+  ctx.font = '600 10px DM Sans, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(t.label, colW / 2 + 10, colH / 2 - 80);
+  ctx.font = '400 7px DM Sans, sans-serif'; ctx.fillStyle = '#3a6080';
+  ctx.fillText('desk', colW / 2 + 10, colH / 2 - 70);
+  ctx.textBaseline = 'alphabetic';
+
+  // Rotation hint at top-right
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '400 9px DM Sans, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('⟳', colW / 2, 10);
+  ctx.textBaseline = 'alphabetic';
+
+  ctx.restore();
+}
+
+function drawSelectionHighlight(t) {
+  const cx = gx(t.gx), cy = gy(t.gy);
+  if (t.type === 'table') {
+    ctx.strokeStyle = '#d4a96a'; ctx.lineWidth = 2.5; ctx.setLineDash([4,3]);
+    ctx.strokeRect(cx - TW/2 - 14, cy - TH/2 - 14, TW+28, TH+28);
+    ctx.setLineDash([]);
+  } else if (t.type === 'bar') {
+    ctx.strokeStyle = '#d4a96a'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.arc(cx, cy, CELL*0.4 + 10, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (t.type === 'spare') {
+    const ox = gx(t.gx), oy = gy(t.gy);
+    ctx.strokeStyle = '#d4a96a'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+    ctx.strokeRect(ox - 4, oy - 4, CELL + 8, CELL + 8);
+    ctx.setLineDash([]);
+  } else if (t.type === 'desk') {
+    const ox = gx(t.gx), oy = gy(t.gy);
+    const colW = DESK_W1 * CELL;
+    const colH = DESK_LEN * CELL;
+    const armW = (DESK_LEN / 2) * CELL;
+    ctx.strokeStyle = '#d4a96a'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+    ctx.strokeRect(ox - 10, oy - 10, colW + 50, colH + 20);
+    ctx.setLineDash([]);
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, CW, CH);
+  ctx.fillStyle = '#f2ede6'; ctx.fillRect(0, 0, CW, CH);
+  drawWalls(); drawCarpet(); drawGrid(); drawFeatures();
+
+  for (const t of items) {
+    if (t.id === selectedId) drawSelectionHighlight(t);
+    if (t.type === 'table') drawTable(t);
+    else if (t.type === 'bar') drawBar(t);
+    else if (t.type === 'spare') drawSpare(t);
+    else if (t.type === 'desk') drawDesk(t);
+  }
+
+  // Footer
+  ctx.fillStyle = '#bbb'; ctx.font = '400 8px DM Sans, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`Café Room Floor Plan · ${items.length} items · Grid ${COLS}×${ROWS}`, CW/2, CH - 10);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INTERACTION
+// ══════════════════════════════════════════════════════════════════
+function hitTest(mx, my) {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const t = items[i];
+    const cx = gx(t.gx), cy = gy(t.gy);
+    if (t.type === 'table') {
+      if (Math.abs(mx-cx) < TW/2+14 && Math.abs(my-cy) < TH/2+14) return t;
+    } else if (t.type === 'bar') {
+      if (Math.hypot(mx-cx, my-cy) < CELL*0.4+10) return t;
+    } else if (t.type === 'spare') {
+      const ox = gx(t.gx), oy = gy(t.gy);
+      if (mx >= ox-4 && mx <= ox+CELL+4 && my >= oy-4 && my <= oy+CELL+4) return t;
+    } else if (t.type === 'desk') {
+      const ox = gx(t.gx), oy = gy(t.gy);
+      const colW = DESK_W1 * CELL;
+      const colH = DESK_LEN * CELL;
+      if (mx >= ox-10 && mx <= ox+colW+50 && my >= oy-10 && my <= oy+colH+20) return t;
+    }
+  }
+  return null;
+}
+
+canvas.addEventListener('mousedown', e => {
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  const t = hitTest(mx, my);
+  if (t) {
+    // Check desk rotation handle (top-right corner)
+    if (t.type === 'desk') {
+      const ox = gx(t.gx), oy = gy(t.gy);
+      const fullLen = DESK_LEN*CELL;
+      if (Math.abs(mx - (ox+fullLen)) < 14 && Math.abs(my - oy) < 14) {
+        t.rot = ((t.rot||0) + 1) % 4;
+        draw(); return;
+      }
+    }
+    selectItem(t.id);
+    dragging = t;
+    dragOX = mx - gx(t.gx);
+    dragOY = my - gy(t.gy);
+    // bring to front
+    items = [...items.filter(x=>x.id!==t.id), t];
+    canvas.style.cursor = 'grabbing';
+  } else {
+    selectItem(null);
+  }
+  draw();
+});
+
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  if (dragging) {
+    let ngx = (mx - dragOX - OX) / CELL;
+    let ngy = (my - dragOY - OY) / CELL;
+    ngx = Math.round(ngx * 2) / 2;
+    ngy = Math.round(ngy * 2) / 2;
+    // Clamp
+    const maxX = dragging.type === 'desk' ? COLS - DESK_W1 - DESK_LEN/2 : COLS - 0.5;
+    const maxY = dragging.type === 'desk' ? ROWS - DESK_LEN : ROWS - 0.5;
+    dragging.gx = Math.max(0, Math.min(maxX, ngx));
+    dragging.gy = Math.max(0, Math.min(maxY, ngy));
+    draw();
+  } else {
+    canvas.style.cursor = hitTest(mx, my) ? 'grab' : 'default';
+  }
+});
+
+canvas.addEventListener('mouseup', () => { dragging = null; canvas.style.cursor='default'; });
+canvas.addEventListener('mouseleave', () => { dragging = null; });
+
+// Touch
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  const r = canvas.getBoundingClientRect();
+  const mx = touch.clientX - r.left, my = touch.clientY - r.top;
+  const t = hitTest(mx, my);
+  if (t) { selectItem(t.id); dragging = t; dragOX = mx-gx(t.gx); dragOY = my-gy(t.gy); items=[...items.filter(x=>x.id!==t.id),t]; }
+  draw();
+}, {passive:false});
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!dragging) return;
+  const touch = e.touches[0];
+  const r = canvas.getBoundingClientRect();
+  const mx = touch.clientX - r.left, my = touch.clientY - r.top;
+  let ngx = Math.round(((mx-dragOX-OX)/CELL)*2)/2;
+  let ngy = Math.round(((my-dragOY-OY)/CELL)*2)/2;
+  dragging.gx = Math.max(0, Math.min(COLS-0.5, ngx));
+  dragging.gy = Math.max(0, Math.min(ROWS-0.5, ngy));
+  draw();
+}, {passive:false});
+
+canvas.addEventListener('touchend', () => { dragging = null; });
+
+// ══════════════════════════════════════════════════════════════════
+// ITEM MANAGEMENT
+// ══════════════════════════════════════════════════════════════════
+function addItem(type) {
+  let t;
+  if (type === 'table') t = makeTable(7, 7, `T${nextId}`, 4, ['top','bottom','left','right']);
+  else if (type === 'bar') t = makeBar(7, 7, `Bar${nextId}`);
+  else if (type === 'spare') t = makeSpare(7, 7, 'Spare Chairs');
+  else if (type === 'desk') t = makeDesk(4, 7, `Desk${nextId}`);
+  items.push(t);
+  selectItem(t.id);
+  draw(); renderList();
+}
+
+function deleteItem(id) {
+  items = items.filter(t => t.id !== id);
+  if (selectedId === id) selectItem(null);
+  draw(); renderList();
+}
+
+function selectItem(id) {
+  selectedId = id;
+  renderList();
+  renderProps();
+  draw();
+}
+
+function updateProp(key, val) {
+  const t = items.find(t => t.id === selectedId);
+  if (!t) return;
+  t[key] = val;
+  draw(); renderList();
+}
+
+function toggleSide(btn) {
+  const t = items.find(t => t.id === selectedId);
+  if (!t) return;
+  const side = btn.dataset.side;
+  const idx = t.sides.indexOf(side);
+  if (idx >= 0) t.sides.splice(idx, 1);
+  else t.sides.push(side);
+  // update chairs count to match active sides
+  t.chairs = t.sides.length;
+  btn.classList.toggle('active', t.sides.includes(side));
+  draw();
+}
+
+function renderSideButtons(t) {
+  document.querySelectorAll('.side-btn').forEach(btn => {
+    btn.classList.toggle('active', t.sides && t.sides.includes(btn.dataset.side));
+  });
+}
+
+function renderProps() {
+  const panel = document.getElementById('props-panel');
+  const t = items.find(t => t.id === selectedId);
+  if (!t) { panel.classList.remove('visible'); return; }
+  panel.classList.add('visible');
+  document.getElementById('prop-name').value = t.label || '';
+  const chairProps = document.getElementById('chair-props');
+  if (t.type === 'table') {
+    chairProps.style.display = 'block';
+    renderSideButtons(t);
+  } else {
+    chairProps.style.display = 'none';
+  }
+}
+
+function renderList() {
+  const list = document.getElementById('item-list');
+  document.getElementById('item-count').textContent = `(${items.length})`;
+  list.innerHTML = '';
+  const typeColors = { table: '#C8A96E', bar: '#666', spare: '#8a7a60', desk: '#8BAAB8' };
+  const typeIcons  = { table: '🪑', bar: '🔵', spare: '🪑', desk: '📐' };
+  items.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'item-row' + (t.id === selectedId ? ' selected' : '');
+    row.innerHTML = `
+      <div class="item-dot" style="background:${typeColors[t.type]||'#888'}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="item-name">${typeIcons[t.type]} ${t.label}</div>
+        <div class="item-sub">${t.type}${t.type==='table'?' · '+t.chairs+' chairs':''}</div>
+      </div>
+      <button class="del-btn" title="Remove">✕</button>
+    `;
+    row.querySelector('.del-btn').addEventListener('click', ev => { ev.stopPropagation(); deleteItem(t.id); });
+    row.addEventListener('click', () => selectItem(t.id));
+    list.appendChild(row);
+  });
+}
+
+function setGridMode(btn) {
+  gridMode = btn.dataset.mode;
+  document.querySelectorAll('.gm-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  draw();
+}
+
+function resetLayout() {
+  if (!confirm('Clear all items from the layout?')) return;
+  items = [];
+  nextId = 1;
+  selectedId = null;
+  renderList(); renderProps(); draw();
+}
+
+function exportPNG() {
+  // Save state
+  const prevSelected = selectedId;
+  const prevGridMode = gridMode;
+
+  // Deselect so no highlight appears in export
+  selectedId = null;
+  draw();
+
+  // Export
+  const link = document.createElement('a');
+  link.download = 'cafe-floorplan.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+
+  // Restore selection and grid mode without changing anything
+  selectedId = prevSelected;
+  gridMode = prevGridMode;
+  draw();
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  btn.textContent = collapsed ? '›' : '‹';
+  btn.style.left = collapsed ? '8px' : '248px';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════
+renderList();
+draw();
+</script>
+
+<style media="print">
+  body { background: white; display: block; }
+  #sidebar { display: none !important; }
+  #canvas-area { padding: 4px; overflow: visible; }
+  canvas { box-shadow: none; width: 100% !important; height: auto !important; }
+</style>
+
+</body>
+</html>
