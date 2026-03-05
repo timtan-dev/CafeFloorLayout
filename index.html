@@ -52,9 +52,9 @@ body {
 }
 
 #sidebar-toggle {
-  position: fixed;
+  position: absolute;
   top: 12px;
-  left: 248px;
+  right: -32px;
   z-index: 100;
   width: 24px;
   height: 24px;
@@ -67,9 +67,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: left 0.25s ease, background 0.15s, transform 0.25s ease;
+  transition: background 0.15s;
   line-height: 1;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  flex-shrink: 0;
 }
 
 #sidebar-toggle:hover {
@@ -86,6 +87,9 @@ body.sidebar-collapsed #sidebar-toggle {
   padding: 18px 16px 14px;
   border-bottom: 1px solid var(--border);
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
 }
 
 #sidebar-header h1 {
@@ -299,6 +303,7 @@ body.sidebar-collapsed #sidebar-toggle {
   justify-content: flex-start;
   padding: 20px;
   background: var(--bg);
+  -webkit-overflow-scrolling: touch;
 }
 
 canvas {
@@ -307,18 +312,73 @@ canvas {
   box-shadow: 0 8px 40px rgba(0,0,0,0.5);
   cursor: default;
 }
+
+@media (max-width: 600px) {
+  body {
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  #sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto;
+    max-height: 44vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  #sidebar.collapsed {
+    max-height: 42px;
+    width: 100% !important;
+  }
+  #sidebar-header {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+  }
+  #sidebar-header h1 { font-size: 0.95rem; }
+  #sidebar-header p  { display: none; }
+  #sidebar-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 12px;
+  }
+  #sidebar-toggle {
+    position: static !important;
+    width: 22px;
+    height: 22px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    box-shadow: none;
+    transform: rotate(90deg);
+  }
+  #sidebar.collapsed #sidebar-toggle { transform: rotate(-90deg); }
+  #canvas-area {
+    flex: 1;
+    padding: 6px;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .add-btn .desc { display: none; }
+  .section-title { margin: 8px 0 4px; }
+}
 </style>
 </head>
 <body>
 
-<!-- Sidebar toggle button -->
-<button id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">‹</button>
-
 <!-- Sidebar -->
 <div id="sidebar">
   <div id="sidebar-header">
-    <h1>Café Floor Plan</h1>
-    <p>14 wide · 15 deep · grid editor</p>
+    <div>
+      <h1>Café Floor Plan</h1>
+      <p>14 wide · 15 deep · grid editor</p>
+    </div>
+    <button id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">‹</button>
   </div>
 
   <div id="sidebar-body">
@@ -1042,19 +1102,29 @@ canvas.addEventListener('mouseup', () => { dragging = null; canvas.style.cursor=
 canvas.addEventListener('mouseleave', () => { dragging = null; });
 
 // Touch
+let touchHit = null;
 canvas.addEventListener('touchstart', e => {
-  e.preventDefault();
   const touch = e.touches[0];
   const r = canvas.getBoundingClientRect();
   const mx = touch.clientX - r.left, my = touch.clientY - r.top;
-  const t = hitTest(mx, my);
-  if (t) { selectItem(t.id); dragging = t; dragOX = mx-gx(t.gx); dragOY = my-gy(t.gy); items=[...items.filter(x=>x.id!==t.id),t]; }
-  draw();
+  touchHit = hitTest(mx, my);
+  if (touchHit) {
+    e.preventDefault(); // only block scroll if touching an item
+    selectItem(touchHit.id);
+    dragging = touchHit;
+    dragOX = mx - gx(touchHit.gx);
+    dragOY = my - gy(touchHit.gy);
+    items = [...items.filter(x => x.id !== touchHit.id), touchHit];
+    draw();
+  } else {
+    selectItem(null);
+    draw();
+  }
 }, {passive:false});
 
 canvas.addEventListener('touchmove', e => {
+  if (!dragging) return; // no drag = let browser scroll
   e.preventDefault();
-  if (!dragging) return;
   const touch = e.touches[0];
   const r = canvas.getBoundingClientRect();
   const mx = touch.clientX - r.left, my = touch.clientY - r.top;
@@ -1198,8 +1268,9 @@ function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const btn = document.getElementById('sidebar-toggle');
   const collapsed = sidebar.classList.toggle('collapsed');
+  const isMobile = window.innerWidth <= 600;
   btn.textContent = collapsed ? '›' : '‹';
-  btn.style.left = collapsed ? '8px' : '248px';
+  if (isMobile) btn.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(90deg)';
 }
 
 // ══════════════════════════════════════════════════════════════════
